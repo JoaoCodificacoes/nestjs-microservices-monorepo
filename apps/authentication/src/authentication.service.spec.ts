@@ -18,7 +18,6 @@ describe('AuthenticationService', () => {
         ...this.data,
       });
     }
-    // 1. We added 'find' here so we can mock it
     static findOne = jest.fn();
     static find = jest.fn();
   };
