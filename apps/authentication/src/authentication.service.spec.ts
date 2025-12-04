@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthenticationService } from './authentication.service';
 import { getModelToken } from '@nestjs/mongoose';
-import { User } from '../schemas/user.schema';
+import { User } from './schemas/user.schema';
 import { RpcException } from '@nestjs/microservices';
 
 /* eslint-disable */
