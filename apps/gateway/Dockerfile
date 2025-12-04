@@ -1,5 +1,5 @@
 
-FROM node:20-alpine As development
+FROM node:20-alpine AS development
 
 
 WORKDIR /usr/src/app
@@ -17,7 +17,7 @@ COPY . .
 CMD ["npm", "run", "start:dev", "gateway"]
 
 
-FROM node:20-alpine As build
+FROM node:20-alpine AS build
 
 WORKDIR /usr/src/app
 
@@ -32,7 +32,7 @@ COPY . .
 RUN npm run build gateway
 
 
-FROM node:20-alpine as production
+FROM node:20-alpine AS production
 
 ARG NODE_ENV=production
 ENV NODE_ENV=${NODE_ENV}
