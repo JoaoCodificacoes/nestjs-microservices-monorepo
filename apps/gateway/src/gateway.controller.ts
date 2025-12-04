@@ -4,6 +4,7 @@ import {
   Post,
   HttpException,
   HttpStatus,
+  Get,
 } from '@nestjs/common';
 import { GatewayService } from './gateway.service';
 import { CreateUserDto } from '@app/common';
@@ -20,6 +21,19 @@ export class GatewayController {
       const typedError = error as Error;
       throw new HttpException(
         typedError.message || 'Registration failed',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Get('users')
+  async getUsers() {
+    try {
+      return await this.gatewayService.getUsers();
+    } catch (error) {
+      const typedError = error as Error;
+      throw new HttpException(
+        typedError.message || 'Failed to get users',
         HttpStatus.BAD_REQUEST,
       );
     }

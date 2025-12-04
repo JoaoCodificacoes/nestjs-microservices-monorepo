@@ -11,4 +11,9 @@ export class AuthenticationController {
   async register(@Payload() createUserDto: CreateUserDto) {
     return this.authenticationService.register(createUserDto);
   }
+
+  @MessagePattern({ cmd: 'getUsers' })
+  async getUsers() {
+    return this.authenticationService.getUsers();
+  }
 }

@@ -13,13 +13,14 @@ describe('AuthenticationService', () => {
     save: any;
 
     constructor(private data: any) {
-
       this.save = jest.fn().mockResolvedValue({
         _id: 'some_id_123',
         ...this.data,
       });
     }
+    // 1. We added 'find' here so we can mock it
     static findOne = jest.fn();
+    static find = jest.fn();
   };
 
   beforeEach(async () => {
@@ -54,20 +55,43 @@ describe('AuthenticationService', () => {
       const result = await service.register(createUserDto);
 
       expect(model.findOne).toHaveBeenCalledWith({ email: createUserDto.email });
-
       expect(result).toEqual({
         _id: 'some_id_123',
         name: createUserDto.name,
         email: createUserDto.email,
       });
-
       expect(result).not.toHaveProperty('password');
     });
 
     it('should throw RpcException if user already exists', async () => {
       jest.spyOn(model, 'findOne').mockResolvedValue({ _id: '123' });
-
       await expect(service.register(createUserDto)).rejects.toThrow(RpcException);
+    });
+  });
+
+
+  describe('getUsers', () => {
+    it('should return an array of users without passwords', async () => {
+      const mockUsers = [
+        { _id: '1', name: 'User One', email: 'one@test.com', password: 'hash1' },
+        { _id: '2', name: 'User Two', email: 'two@test.com', password: 'hash2' },
+      ];
+
+      jest.spyOn(model, 'find').mockResolvedValue(mockUsers);
+
+
+      const result = await service.getUsers();
+
+
+      expect(model.find).toHaveBeenCalled();
+      expect(result).toHaveLength(2);
+
+      expect(result[0]).toEqual({
+        _id: '1',
+        name: 'User One',
+        email: 'one@test.com',
+      });
+      expect(result[0]).not.toHaveProperty('password');
     });
   });
 });

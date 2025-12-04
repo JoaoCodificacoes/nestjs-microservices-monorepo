@@ -14,4 +14,8 @@ export class GatewayService {
       this.authClient.send({ cmd: 'register' }, createUserDto),
     );
   }
+
+  async getUsers(): Promise<UserDto[]> {
+    return firstValueFrom(this.authClient.send({ cmd: 'getUsers' }, {}));
+  }
 }
