@@ -4,6 +4,7 @@ import request from 'supertest';
 import { GatewayModule } from '../src/gateway.module';
 import { GatewayService } from '../src/gateway.service';
 
+
 /* eslint-disable */
 describe('Gateway Rate Limiting (e2e)', () => {
   let app: INestApplication;
@@ -38,14 +39,12 @@ describe('Gateway Rate Limiting (e2e)', () => {
       password: 'password123',
     };
 
-
     for (let i = 0; i < 10; i++) {
       await request(app.getHttpServer())
         .post('/auth/register')
         .send(dto)
         .expect(201);
     }
-
 
     await request(app.getHttpServer())
       .post('/auth/register')
