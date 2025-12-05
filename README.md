@@ -1,98 +1,151 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# NestJS Microservices Monorepo
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+This repository demonstrates a microservices architecture using the NestJS framework in a monorepo structure. It
+includes an API Gateway that handles HTTP requests and an Authentication microservice for user management, communicating
+via TCP.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+The project is containerized using Docker and Docker Compose for easy setup and development.
 
-## Description
+## Architecture Overview
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+The system is composed of two main applications and several shared libraries:
 
-## Project setup
+- **`gateway`**: The public-facing API Gateway. It exposes RESTful endpoints, handles request validation, rate limiting,
+  and forwards business logic to the appropriate microservice. It is also responsible for serving the Swagger API
+  documentation.
+- **`authentication`**: A microservice that manages user registration and authentication. It handles password hashing,
+  JWT generation, and database interactions with MongoDB. It uses Redis for caching user data to improve performance.
+
+### Shared Libraries (`libs`)
+
+- **`common`**: Contains shared code such as DTOs, RTOs, and the Passport JWT strategy to ensure consistency across
+  services.
+- **`config`**: Provides centralized configuration management using `@nestjs/config` with Joi for environment variable
+  validation.
+- **`core`**: Contains foundational modules for database connections (Mongoose), logging (Pino), caching (Redis), and
+  JWT configuration.
+
+## Key Features
+
+### Core Requirements
+
+- ✅ NestJS Monorepo with apps/ structure
+- ✅ API Gateway (HTTP REST)
+- ✅ Authentication Microservice
+- ✅ TCP Communication via NestJS Microservices
+- ✅ MVC Pattern (Controller → Service → Repository)
+- ✅ DTOs with class-validator
+- ✅ MongoDB with Mongoose
+
+### Bonus Features Implemented
+
+- ✅ **JWT Authentication** - Secure token-based auth with Passport.js
+- ✅ **Centralized Logging** - Pino logger across all services
+- ✅ **Redis Caching** - Performance optimization for user data
+- ✅ **Comprehensive Testing** - Unit and E2E tests for both services
+- ✅ **Health Checks** - Service readiness monitoring
+- ✅ **Rate Limiting** - Request throttling in API Gateway
+- ✅ **API Documentation** - Interactive Swagger/OpenAPI docs
+- ✅ **Full Dockerization** - Production-ready containerization
+- ✅ **Code Quality** - ESLint & Prettier configuration
+
+## Tech Stack
+
+- **Framework**: NestJS
+- **Architecture**: Microservices & Monorepo
+- **Communication**: TCP
+- **Database**: MongoDB (with Mongoose)
+- **Caching**: Redis
+- **Authentication**: JWT, Passport.js, bcrypt
+- **API Documentation**: Swagger (OpenAPI)
+- **Containerization**: Docker, Docker Compose
+- **Linting/Formatting**: ESLint, Prettier
+- **Testing**: Jest, Supertest
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js (v20 or later)
+- npm
+- Docker and Docker Compose
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/JoaoCodificacoes/nestjs-microservices-monorepo.git
+   cd nestjs-microservices-monorepo
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+### Running the Application (Docker)
+
+The recommended way to run the application is using Docker Compose. This will start all the necessary services,
+including the NestJS applications, MongoDB, and Redis.
 
 ```bash
-$ npm install
+docker-compose up --build
 ```
 
-## Compile and run the project
+- **API Gateway** will be available at `http://localhost:3000`
+- **Swagger API Documentation** will be available at `http://localhost:3000/api`
+- **Health Check** endpoint is available at `http://localhost:3000/health`
 
-```bash
-# development
-$ npm run start
+The services defined in `docker-compose.yml` are:
 
-# watch mode
-$ npm run start:dev
+- `gateway`: The API Gateway service.
+- `authentication`: The Authentication microservice.
+- `mongo`: The MongoDB database instance.
+- `redis`: The Redis cache instance.
 
-# production mode
-$ npm run start:prod
+## API Endpoints
+
+Once the services are running, you can interact with the API via the Gateway. Refer to the Swagger UI at
+`http://localhost:3000/api` for a detailed and interactive API documentation.
+
+### Main Endpoints
+
+- `POST /auth/register`: Register a new user.
+- `POST /auth/login`: Authenticate a user and receive a JWT access token.
+- `GET /auth/users`: Retrieve a list of all registered users. (Requires a valid JWT Bearer token).
+- `GET /health`: Check the health status of the gateway and its connected microservices.
+
+## Running Tests
+
+This monorepo is configured with both unit and end-to-end (E2E) tests for each application.
+
+- **Run all unit tests:**
+  ```bash
+  npm run test
+  ```
+
+- **Run E2E tests for the Gateway:**
+  ```bash
+  npm run test:e2e:gateway
+  ```
+
+- **Run E2E tests for the Authentication microservice:**
+  *Note: This requires a running MongoDB instance. The test suite is configured to use a separate test database.*
+  ```bash
+  npm run test:e2e:auth
+  ```
+
+## Project Structure
+
 ```
-
-## Run tests
-
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+.
+├── apps
+│   ├── authentication/   # Authentication microservice
+│   └── gateway/          # API Gateway service
+├── libs
+│   ├── common/           # Shared DTOs, RTOs, auth logic
+│   ├── config/           # Shared configuration module
+│   └── core/             # Shared core modules (DB, Redis, Logger)
+├── docker-compose.yml    # Docker services definition
+├── nest-cli.json         # NestJS monorepo configuration
+└── package.json          # Project dependencies and scripts
