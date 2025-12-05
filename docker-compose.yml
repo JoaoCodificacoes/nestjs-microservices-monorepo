@@ -16,6 +16,7 @@ services:
       - AUTH_HOST=authentication
       - AUTH_PORT=3001
       - JWT_SECRET=secret_key
+      - JWT_EXPIRATION=3600s
     depends_on:
       - mongo
       - redis
