@@ -1,7 +1,7 @@
 import { Controller } from '@nestjs/common';
 import { AuthenticationService } from './authentication.service';
 import { MessagePattern, Payload } from '@nestjs/microservices';
-import { CreateUserDto } from '@app/common';
+import { CreateUserDto, LoginDto, LoginRto } from '@app/common';
 
 @Controller()
 export class AuthenticationController {
@@ -15,5 +15,10 @@ export class AuthenticationController {
   @MessagePattern({ cmd: 'getUsers' })
   async getUsers() {
     return this.authenticationService.getUsers();
+  }
+
+  @MessagePattern({ cmd: 'login' })
+  async login(@Payload() loginDto: LoginDto): Promise<LoginRto> {
+    return this.authenticationService.login(loginDto);
   }
 }

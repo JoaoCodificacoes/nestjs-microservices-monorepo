@@ -6,12 +6,13 @@ import { GatewayService } from './gateway.service';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { LoggerModule } from '@app/core';
 import { HealthModule } from './health/health.module';
+import { CommonAuthModule } from '@app/common';
 
 @Module({
   imports: [
     LoggerModule,
     HealthModule,
-
+    CommonAuthModule,
     ThrottlerModule.forRoot([
       {
         ttl: 60000,

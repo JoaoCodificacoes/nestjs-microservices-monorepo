@@ -5,9 +5,11 @@ import {
   HttpException,
   HttpStatus,
   Get,
+  UseGuards,
 } from '@nestjs/common';
 import { GatewayService } from './gateway.service';
-import { CreateUserDto } from '@app/common';
+import { CreateUserDto, LoginDto, LoginRto, UserRto } from '@app/common';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('auth')
 export class GatewayController {
@@ -26,8 +28,22 @@ export class GatewayController {
     }
   }
 
+  @Post('login')
+  async login(@Body() loginDto: LoginDto): Promise<LoginRto> {
+    try {
+      return await this.gatewayService.login(loginDto);
+    } catch (error) {
+      const typedError = error as Error;
+      throw new HttpException(
+        typedError.message || 'Login failed',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Get('users')
-  async getUsers() {
+  async getUsers(): Promise<UserRto[]> {
     try {
       return await this.gatewayService.getUsers();
     } catch (error) {

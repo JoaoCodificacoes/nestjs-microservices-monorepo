@@ -15,6 +15,7 @@ services:
       - REDIS_PORT=6379
       - AUTH_HOST=authentication
       - AUTH_PORT=3001
+      - JWT_SECRET=secret_key
     depends_on:
       - mongo
       - redis
@@ -29,6 +30,10 @@ services:
       - "3001:3001"
     environment:
       - MONGO_URI=mongodb://mongo:27017/aladia
+      - JWT_SECRET=secret_key
+      - JWT_EXPIRATION=3600s
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     depends_on:
       - mongo
 
