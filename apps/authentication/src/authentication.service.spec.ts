@@ -3,11 +3,13 @@ import { AuthenticationService } from './authentication.service';
 import { getModelToken } from '@nestjs/mongoose';
 import { User } from './schemas/user.schema';
 import { RpcException } from '@nestjs/microservices';
+import { CACHE_MANAGER } from '@nestjs/cache-manager'; // <--- Import
 
 /* eslint-disable */
 describe('AuthenticationService', () => {
   let service: AuthenticationService;
   let model: any;
+  let cacheManager: any;
 
   const mockUserModel = class {
     save: any;
@@ -22,6 +24,12 @@ describe('AuthenticationService', () => {
     static find = jest.fn();
   };
 
+  const mockCacheManager = {
+    get: jest.fn(),
+    set: jest.fn(),
+    del: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -30,11 +38,20 @@ describe('AuthenticationService', () => {
           provide: getModelToken(User.name),
           useValue: mockUserModel,
         },
+        {
+          provide: CACHE_MANAGER,
+          useValue: mockCacheManager,
+        },
       ],
     }).compile();
 
     service = module.get<AuthenticationService>(AuthenticationService);
     model = module.get(getModelToken(User.name));
+    cacheManager = module.get(CACHE_MANAGER);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   it('should be defined', () => {
@@ -48,12 +65,15 @@ describe('AuthenticationService', () => {
       password: 'password123',
     };
 
-    it('should register a new user successfully', async () => {
+    it('should register a new user and invalidate cache', async () => {
       jest.spyOn(model, 'findOne').mockResolvedValue(null);
 
       const result = await service.register(createUserDto);
 
       expect(model.findOne).toHaveBeenCalledWith({ email: createUserDto.email });
+
+      expect(cacheManager.del).toHaveBeenCalledWith('all_users');
+
       expect(result).toEqual({
         _id: 'some_id_123',
         name: createUserDto.name,
@@ -68,28 +88,41 @@ describe('AuthenticationService', () => {
     });
   });
 
-
   describe('getUsers', () => {
-    it('should return an array of users without passwords', async () => {
-      const mockUsers = [
-        { _id: '1', name: 'User One', email: 'one@test.com', password: 'hash1' },
-        { _id: '2', name: 'User Two', email: 'two@test.com', password: 'hash2' },
+    it('should return cached users if available (CACHE HIT)', async () => {
+      const cachedUsers = [
+        { _id: '1', name: 'Cached User', email: 'cache@test.com' }
       ];
 
-      jest.spyOn(model, 'find').mockResolvedValue(mockUsers);
-
+      cacheManager.get.mockResolvedValue(cachedUsers);
 
       const result = await service.getUsers();
 
+      expect(result).toEqual(cachedUsers);
+      expect(cacheManager.get).toHaveBeenCalledWith('all_users');
 
-      expect(model.find).toHaveBeenCalled();
-      expect(result).toHaveLength(2);
 
-      expect(result[0]).toEqual({
-        _id: '1',
-        name: 'User One',
-        email: 'one@test.com',
-      });
+      expect(model.find).not.toHaveBeenCalled();
+    });
+
+    it('should fetch from DB and set cache if empty (CACHE MISS)', async () => {
+      const dbUsers = [
+        { _id: '2', name: 'DB User', email: 'db@test.com', password: 'hash' }
+      ];
+
+      // 1. Simulate Cache MISS
+      cacheManager.get.mockResolvedValue(null);
+
+      // 2. Simulate DB Return
+      jest.spyOn(model, 'find').mockResolvedValue(dbUsers);
+
+      const result = await service.getUsers();
+
+      expect(model.find).toHaveBeenCalled(); // Hit DB
+
+      expect(cacheManager.set).toHaveBeenCalledWith('all_users', expect.any(Array));
+
+      expect(result[0].email).toBe('db@test.com');
       expect(result[0]).not.toHaveProperty('password');
     });
   });
