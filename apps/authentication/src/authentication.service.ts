@@ -80,6 +80,12 @@ export class AuthenticationService {
   async login(loginDto: LoginDto) {
     const { email, password } = loginDto;
 
+    if (!email || !password) {
+      this.logger.warn(`Login attempt with missing credentials`);
+      throw new RpcException(
+        new UnauthorizedException('Email and password are required'),
+      );
+    }
     const user = await this.userModel.findOne({ email });
 
     if (!user) {

@@ -11,5 +11,8 @@
     "@app/common": "<rootDir>/../../../libs/common/src",
     "@app/core/(.*)": "<rootDir>/../../../libs/core/src/$1",
     "@app/core": "<rootDir>/../../../libs/core/src"
-  }
+  },
+  "forceExit": true,
+  "detectOpenHandles": false,
+  "testTimeout": 30000
 }

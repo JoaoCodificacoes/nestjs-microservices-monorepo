@@ -26,7 +26,6 @@ describe('AuthenticationController (e2e)', () => {
         ]),
       ],
     })
-
       .overrideProvider(ConfigService)
       .useValue({
         get: (key: string) => {
@@ -57,38 +56,229 @@ describe('AuthenticationController (e2e)', () => {
   });
 
   afterAll(async () => {
+    await dbConnection.collection('users').deleteMany({});
+    await client.close();
     await app.close();
-    client.close();
+    await dbConnection.close();
   });
 
   const uniqueEmail = `e2e-${Date.now()}@test.com`;
+  const testPassword = 'password123';
+  let userId: string;
 
-  it('Step 1: Register a new user', async () => {
-    const createUserDto = {
-      name: 'E2E User',
-      email: uniqueEmail,
-      password: 'password123',
-    };
+  describe('User Registration Flow', () => {
+    it('should register a new user', async () => {
+      const createUserDto = {
+        name: 'E2E User',
+        email: uniqueEmail,
+        password: testPassword,
+      };
 
-    const response = await firstValueFrom(
-      client.send({ cmd: 'register' }, createUserDto),
-    );
+      const response = await firstValueFrom(
+        client.send({ cmd: 'register' }, createUserDto),
+      );
 
-    expect(response).toHaveProperty('_id');
-    expect(response.email).toEqual(uniqueEmail);
-    expect(response).not.toHaveProperty('password');
+      expect(response).toHaveProperty('_id');
+      expect(response.email).toEqual(uniqueEmail);
+      expect(response.name).toBe('E2E User');
+      expect(response).not.toHaveProperty('password');
+
+      userId = response._id;
+    });
+
+    it('should throw error when registering duplicate email', async () => {
+      const createUserDto = {
+        name: 'Duplicate User',
+        email: uniqueEmail,
+        password: 'another_password',
+      };
+
+      try {
+        await firstValueFrom(client.send({ cmd: 'register' }, createUserDto));
+        fail('Should have thrown an error');
+      } catch (error) {
+        expect(error).toBeDefined();
+        expect(error.message || error.error).toMatch(/already exists/i);
+      }
+    });
   });
 
-  it('Step 2: Get all users and verify the new user is there', async () => {
-    const response = await firstValueFrom(client.send({ cmd: 'getUsers' }, {}));
+  describe('User Retrieval', () => {
+    it('should get all users and verify the new user is there', async () => {
+      const response = await firstValueFrom(
+        client.send({ cmd: 'getUsers' }, {}),
+      );
 
-    expect(Array.isArray(response)).toBe(true);
-    expect(response.length).toBeGreaterThan(0);
+      expect(Array.isArray(response)).toBe(true);
+      expect(response.length).toBeGreaterThan(0);
 
-    const createdUser = response.find((user) => user.email === uniqueEmail);
+      const createdUser = response.find((user) => user.email === uniqueEmail);
 
-    expect(createdUser).toBeDefined();
-    expect(createdUser.name).toBe('E2E User');
-    expect(createdUser).not.toHaveProperty('password');
+      expect(createdUser).toBeDefined();
+      expect(createdUser.name).toBe('E2E User');
+      expect(createdUser._id).toBe(userId);
+      expect(createdUser).not.toHaveProperty('password');
+    });
+  });
+
+  describe('User Login Flow', () => {
+    it('should login with correct credentials and return access token', async () => {
+      const loginDto = {
+        email: uniqueEmail,
+        password: testPassword,
+      };
+
+      const response = await firstValueFrom(
+        client.send({ cmd: 'login' }, loginDto),
+      );
+
+      expect(response).toHaveProperty('access_token');
+      expect(response).toHaveProperty('user');
+      expect(response.access_token).toBeTruthy();
+      expect(typeof response.access_token).toBe('string');
+
+      expect(response.user).toHaveProperty('_id');
+      expect(response.user).toHaveProperty('email');
+      expect(response.user).toHaveProperty('name');
+      expect(response.user.email).toBe(uniqueEmail);
+      expect(response.user.name).toBe('E2E User');
+      expect(response.user).not.toHaveProperty('password');
+    });
+
+    it('should throw error when logging in with non-existent email', async () => {
+      const loginDto = {
+        email: 'nonexistent@test.com',
+        password: testPassword,
+      };
+
+      try {
+        await firstValueFrom(client.send({ cmd: 'login' }, loginDto));
+        fail('Should have thrown an error');
+      } catch (error) {
+        expect(error).toBeDefined();
+        expect(error.message || error.error).toMatch(
+          /Invalid credentials|not found/i,
+        );
+      }
+    });
+
+    it('should throw error when logging in with incorrect password', async () => {
+      const loginDto = {
+        email: uniqueEmail,
+        password: 'wrongpassword',
+      };
+
+      try {
+        await firstValueFrom(client.send({ cmd: 'login' }, loginDto));
+        fail('Should have thrown an error');
+      } catch (error) {
+        expect(error).toBeDefined();
+        expect(error.message || error.error).toMatch(/Invalid credentials/i);
+      }
+    });
+
+    it('should throw error when password is missing', async () => {
+      const loginDto = {
+        email: uniqueEmail,
+      };
+
+      try {
+        await firstValueFrom(client.send({ cmd: 'login' }, loginDto as any));
+        fail('Should have thrown an error');
+      } catch (error) {
+        expect(error).toBeDefined();
+        // Either validation error or manual check in service
+        expect(error.message || error.error).toMatch(
+          /password|required|credentials/i,
+        );
+      }
+    });
+
+    it('should throw error when email is missing', async () => {
+      const loginDto = {
+        password: testPassword,
+      };
+
+      try {
+        await firstValueFrom(client.send({ cmd: 'login' }, loginDto as any));
+        fail('Should have thrown an error');
+      } catch (error) {
+        expect(error).toBeDefined();
+        // Either validation error or manual check in service
+        expect(error.message || error.error).toMatch(
+          /email|required|credentials/i,
+        );
+      }
+    });
+  });
+
+  describe('Cache Invalidation', () => {
+    it('should invalidate cache after new user registration', async () => {
+      const newUniqueEmail = `e2e-cache-${Date.now()}@test.com`;
+
+      // Get initial user count
+      const beforeResponse = await firstValueFrom(
+        client.send({ cmd: 'getUsers' }, {}),
+      );
+      const beforeCount = beforeResponse.length;
+
+      // Register new user
+      const createUserDto = {
+        name: 'Cache Test User',
+        email: newUniqueEmail,
+        password: 'password123',
+      };
+
+      await firstValueFrom(client.send({ cmd: 'register' }, createUserDto));
+
+      // Get updated user count
+      const afterResponse = await firstValueFrom(
+        client.send({ cmd: 'getUsers' }, {}),
+      );
+      const afterCount = afterResponse.length;
+
+      expect(afterCount).toBe(beforeCount + 1);
+
+      const newUser = afterResponse.find(
+        (user) => user.email === newUniqueEmail,
+      );
+      expect(newUser).toBeDefined();
+      expect(newUser.name).toBe('Cache Test User');
+    });
+  });
+
+  describe('Password Security', () => {
+    it('should never expose password in any response', async () => {
+      const testEmail = `security-${Date.now()}@test.com`;
+
+      // Register
+      const registerResponse = await firstValueFrom(
+        client.send(
+          { cmd: 'register' },
+          {
+            name: 'Security Test',
+            email: testEmail,
+            password: 'secret123',
+          },
+        ),
+      );
+      expect(registerResponse).not.toHaveProperty('password');
+
+      // Login
+      const loginResponse = await firstValueFrom(
+        client.send(
+          { cmd: 'login' },
+          { email: testEmail, password: 'secret123' },
+        ),
+      );
+      expect(loginResponse.user).not.toHaveProperty('password');
+
+      // Get Users
+      const usersResponse = await firstValueFrom(
+        client.send({ cmd: 'getUsers' }, {}),
+      );
+      const securityUser = usersResponse.find((u) => u.email === testEmail);
+      expect(securityUser).not.toHaveProperty('password');
+    });
   });
 });
