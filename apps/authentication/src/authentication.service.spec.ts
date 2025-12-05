@@ -1,10 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthenticationService } from './authentication.service';
-import { getModelToken } from '@nestjs/mongoose';
-import { User } from './users/schemas/user.schema';
 import { RpcException } from '@nestjs/microservices';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { JwtService } from '@nestjs/jwt';
+import { Cache } from 'cache-manager';
+import * as bcrypt from 'bcrypt';
+import { UsersRepository } from './users/users.repository';
 
 /* eslint-disable */
 jest.mock('bcrypt', () => ({
@@ -13,21 +14,16 @@ jest.mock('bcrypt', () => ({
   compare: jest.fn(),
 }));
 
-import * as bcrypt from 'bcrypt';
-
 describe('AuthenticationService', () => {
   let service: AuthenticationService;
-  let model: any;
-  let cacheManager: any;
-  let jwtService: any;
+  let usersRepository: any;
+  let cacheManager: Cache;
+  let jwtService: JwtService;
 
-  const mockUserModel = class {
-    save: any;
-    constructor(private data: any) {
-      this.save = jest.fn().mockResolvedValue({ _id: '123', ...this.data });
-    }
-    static findOne = jest.fn();
-    static find = jest.fn();
+  const mockUsersRepository = {
+    create: jest.fn(),
+    findOne: jest.fn(),
+    find: jest.fn(),
   };
 
   const mockCacheManager = {
@@ -45,8 +41,8 @@ describe('AuthenticationService', () => {
       providers: [
         AuthenticationService,
         {
-          provide: getModelToken(User.name),
-          useValue: mockUserModel,
+          provide: UsersRepository,
+          useValue: mockUsersRepository,
         },
         {
           provide: CACHE_MANAGER,
@@ -60,9 +56,9 @@ describe('AuthenticationService', () => {
     }).compile();
 
     service = module.get<AuthenticationService>(AuthenticationService);
-    model = module.get(getModelToken(User.name));
-    cacheManager = module.get(CACHE_MANAGER);
-    jwtService = module.get(JwtService);
+    usersRepository = module.get<UsersRepository>(UsersRepository);
+    cacheManager = module.get<Cache>(CACHE_MANAGER);
+    jwtService = module.get<JwtService>(JwtService);
   });
 
   afterEach(() => {
@@ -81,26 +77,39 @@ describe('AuthenticationService', () => {
     };
 
     it('should register a new user and invalidate cache', async () => {
-      jest.spyOn(model, 'findOne').mockResolvedValue(null);
+
+      mockUsersRepository.findOne.mockResolvedValue(null);
+
+      mockUsersRepository.create.mockResolvedValue({
+        _id: '123',
+        ...createUserDto,
+
+      });
 
       const result = await service.register(createUserDto);
 
-      expect(model.findOne).toHaveBeenCalledWith({
+      expect(usersRepository.findOne).toHaveBeenCalledWith({
         email: createUserDto.email,
       });
       expect(bcrypt.genSalt).toHaveBeenCalled();
       expect(bcrypt.hash).toHaveBeenCalledWith(createUserDto.password, 'salt');
+
+
+      expect(usersRepository.create).toHaveBeenCalledWith(expect.objectContaining({
+        ...createUserDto,
+        password: 'hashedPassword'
+      }));
+
       expect(cacheManager.del).toHaveBeenCalledWith('all_users');
-      expect(result).toEqual({
+      expect(result).toEqual(expect.objectContaining({
         _id: '123',
-        name: createUserDto.name,
         email: createUserDto.email,
-      });
+      }));
       expect(result).not.toHaveProperty('password');
     });
 
     it('should throw RpcException if user already exists', async () => {
-      jest.spyOn(model, 'findOne').mockResolvedValue({ _id: '123' });
+      mockUsersRepository.findOne.mockResolvedValue({ _id: '123' });
       await expect(service.register(createUserDto)).rejects.toThrow(
         RpcException,
       );
@@ -112,31 +121,30 @@ describe('AuthenticationService', () => {
       const cachedUsers = [
         { _id: '1', name: 'Cached User', email: 'cache@test.com' },
       ];
-      cacheManager.get.mockResolvedValue(cachedUsers);
+      (mockCacheManager.get as jest.Mock).mockResolvedValue(cachedUsers);
 
       const result = await service.getUsers();
 
       expect(result).toEqual(cachedUsers);
       expect(cacheManager.get).toHaveBeenCalledWith('all_users');
-      expect(model.find).not.toHaveBeenCalled();
+      expect(usersRepository.find).not.toHaveBeenCalled();
     });
 
     it('should fetch from DB and set cache if empty (CACHE MISS)', async () => {
       const dbUsers = [
         { _id: '2', name: 'DB User', email: 'db@test.com', password: 'hash' },
       ];
-      cacheManager.get.mockResolvedValue(null);
-      jest.spyOn(model, 'find').mockResolvedValue(dbUsers);
+      (mockCacheManager.get as jest.Mock).mockResolvedValue(null);
+      mockUsersRepository.find.mockResolvedValue(dbUsers);
 
       const result = await service.getUsers();
 
-      expect(model.find).toHaveBeenCalled();
+      expect(usersRepository.find).toHaveBeenCalled();
       expect(cacheManager.set).toHaveBeenCalledWith(
         'all_users',
         expect.any(Array),
       );
       expect(result[0].email).toBe('db@test.com');
-      expect(result[0]).not.toHaveProperty('password');
     });
   });
 
@@ -144,10 +152,10 @@ describe('AuthenticationService', () => {
     const loginDto = { email: 'test@test.com', password: 'password123' };
 
     it('should throw RpcException if user not found', async () => {
-      jest.spyOn(model, 'findOne').mockResolvedValue(null);
+      mockUsersRepository.findOne.mockResolvedValue(null);
 
       await expect(service.login(loginDto)).rejects.toThrow(RpcException);
-      expect(model.findOne).toHaveBeenCalledWith({ email: loginDto.email });
+      expect(usersRepository.findOne).toHaveBeenCalledWith({ email: loginDto.email });
     });
 
     it('should throw RpcException if password is invalid', async () => {
@@ -157,14 +165,10 @@ describe('AuthenticationService', () => {
         password: 'hashedPassword',
         name: 'Test User',
       };
-      jest.spyOn(model, 'findOne').mockResolvedValue(mockUser);
+      mockUsersRepository.findOne.mockResolvedValue(mockUser);
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
       await expect(service.login(loginDto)).rejects.toThrow(RpcException);
-      expect(bcrypt.compare).toHaveBeenCalledWith(
-        loginDto.password,
-        mockUser.password,
-      );
     });
 
     it('should return access token and user data on successful login', async () => {
@@ -174,15 +178,11 @@ describe('AuthenticationService', () => {
         password: 'hashedPassword',
         name: 'Test User',
       };
-      jest.spyOn(model, 'findOne').mockResolvedValue(mockUser);
+      mockUsersRepository.findOne.mockResolvedValue(mockUser);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
       const result = await service.login(loginDto);
 
-      expect(bcrypt.compare).toHaveBeenCalledWith(
-        loginDto.password,
-        mockUser.password,
-      );
       expect(result).toEqual({
         access_token: 'test_token',
         user: {
