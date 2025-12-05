@@ -3,10 +3,12 @@ import { GatewayController } from './gateway.controller';
 import { GatewayService } from './gateway.service';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { LoggerModule } from '@app/core';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
     LoggerModule,
+    HealthModule,
     ClientsModule.register([
       {
         name: 'AUTH_SERVICE',
